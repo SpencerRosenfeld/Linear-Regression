@@ -1,0 +1,205 @@
+<!DOCTYPE html> 
+
+<html>
+	<head>
+		<script> 
+			function extractData(){
+				var dataRows=document.getElementById('tbl').rows;
+				
+				var x = new Array();
+				var y = new Array(); 
+				
+				var xLabel = dataRows[0].cells[0].children[0].innerHTML;
+				var xUnits = dataRows[0].cells[0].children[1].innerHTML;
+
+				var yLabel = dataRows[0].cells[1].children[0].innerHTML;
+				var yUnits = dataRows[0].cells[1].children[1].innerHTML;
+
+				if( dataRows.length > 2 ){
+				for( var i = 1; i < dataRows.length; i++ ){
+					var xnew = dataRows[i].cells[0].children[0].innerHTML.replace(/[^\d\.]/g,""); 
+					var ynew = dataRows[i].cells[1].children[0].innerHTML.replace(/[^\d\.]/g,"");
+					
+					dataRows[i].cells[0].children[0].innerHTML = xnew;
+					dataRows[i].cells[1].children[0].innerHTML = ynew;
+					
+					if( xnew.split(".").length > 2 || ynew.split(".").length > 2 ){
+						alert("Some of your numbers have too many decimal points : (" + xnew + "," + ynew + ")");
+					}
+					else{
+						x.push( new Number( xnew ) ); 
+						y.push( new Number( ynew ) );
+					}
+				}
+				
+				return [[x,xLabel,xUnits],[y,yLabel,yUnits]];
+				}
+				else{
+					alert("Need at least two data points for the analysis to proceed");
+				}
+			}
+			
+			function SSE( slope, intercept, x, y){
+				var yHat = new Array(); 
+				
+				for( var i = 0; i < y.length; i++ ){
+					yHat.push(slope*x[i] + intercept); 
+				}
+				
+				var sum = 0; 
+				
+				for( var i = 0; i < y.length; i++ ){
+					sum += Math.pow( yHat[i] - y[i], 2);
+				}
+				return sum;
+			}
+			
+			function dSSE( slope, intercept, x, y ){
+				var dSlope = 1E-8;
+				var dIntercept = 1E-8;
+				
+				return [ (SSE(slope + dSlope,intercept,x,y) - SSE(slope,intercept,x,y))/dSlope, (SSE(slope,intercept+dIntercept,x,y) - SSE(slope,intercept,x,y))/dIntercept]; 
+			}
+			
+			function leastSquaresFit(x,y){
+				slope = sampleSD(y) * corr(x,y) / sampleSD(x); 
+				intercept = mean(y) - slope * mean(x); 
+				return [slope,intercept];
+			}
+			
+			function analyze(){
+				var data = extractData(); 
+				var parameters = leastSquaresFit(data[0][0],data[1][0]);
+				var r = corr(data[0][0], data[1][0]); 
+				var r2 = r*r;
+				
+				var returnString = ""; 
+				
+				function round( x ){
+					return Math.floor( x*1000 + 0.5)/1000;
+				}
+				
+				returnString += "Slope : " + round(parameters[0]) + "<br/><br/>"; 
+				returnString += "Intercept : " + round(parameters[1]) + "<br/><br/>";
+				returnString += "r : " + round(r) + "<br/><br/>";
+				returnString += "r<sup>2</sup> : " + round(r2) + "<br/><br/>";
+				returnString += "Y = " + round(parameters[0]) + " X + " + round(parameters[1]) + "<br/>";
+
+				return returnString; 
+			}
+			
+			
+			function addRow(){
+				var table = document.getElementById('tbl'); 
+				
+				var newRow = table.insertRow();
+				var xCell = newRow.insertCell(); 
+				var yCell = newRow.insertCell(); 
+				
+				xCell.innerHTML = "<span class='data' onClick=\"this.contentEditable='true';\">&nbsp;</span>"; 
+				yCell.innerHTML = "<span class='data' onClick=\"this.contentEditable='true';\">&nbsp;</span>";
+				
+				clickAllSpans();
+			}
+			
+			function removeRow(){
+				var table = document.getElementById('tbl'); 
+				if( table.rows.length > 1 ){
+					table.deleteRow(table.rows.length-1);
+				}
+			}
+			
+			function clickAllSpans(){
+				var spans = document.getElementsByTagName("span"); 
+				for( var i = 0; i < spans.length; i++ ){
+					spans[i].click();
+				}
+			}
+			
+			function mean(x){
+				var sum = 0; 
+				for( var i = 0; i < x.length; i++ ){
+					sum += x[i];
+				}
+				return sum / x.length;
+			}
+			
+			function sampleCov(x,y){
+				var xbar = mean(x); 
+				var ybar = mean(y);
+				
+				var sum = 0;
+				
+				for( var i = 0; i < x.length; i++ ){
+					sum += (x[i]-xbar) * (y[i]-ybar);
+				}
+				return sum / (x.length-1);
+			}
+			
+			function sampleSD(x){
+				return Math.sqrt(sampleCov(x,x));
+			}
+			
+			function corr(x,y){
+				return sampleCov(x,y) / (sampleSD(x) * sampleSD(y) ); 
+			}
+			
+			
+		</script>
+		<style>
+			table {padding:none; width:50%;}
+			th {border-bottom:solid;width:50%;}
+			tr {width:50%;}
+			td {width:50%;}
+			.data { background-color:rgb(200,200,255); font-size:15pt; width:100%;} 
+			span {float:left; width:100%; display:block;}
+			span[contenteditable]:empty {
+				content:'';
+				padding:0.5em;
+			}
+		</style>
+	</head>
+	<body>
+		<table id="tbl">
+			<tr>
+				<th><span id="x-label" >X</span> <span id="x-units" >&nbsp;&nbsp;&nbsp;</span> </th>
+				<th><span id="y-label" >Y</span> <span id="y-units" >&nbsp;&nbsp;&nbsp;</span></th>
+			</tr>
+			<tr>
+				<td>
+					<span class="data" onClick="this.contentEditable='true';">
+						0
+					</span><br/>
+				</td>
+				<td>
+					<span class="data" onClick="this.contentEditable='true';">
+						1
+					</span>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<span class="data" onClick="this.contentEditable='true';">
+						1
+					</span>
+				</td>
+				<td>
+					<span class="data" onClick="this.contentEditable='true';">
+						5
+					</span>
+				</td>
+			</tr>
+
+		</table>
+		<button onclick="addRow(); clickAllSpans();" >Add data row</button>
+		<button onclick="removeRow();" >Remove data row</button>
+		<button onclick="document.getElementById('summary').innerHTML=analyze();">Analyze</button>
+		<p id="summary">
+		
+		</p>
+		
+		<script> 
+			clickAllSpans(); 
+		</script>
+	</body>
+</html>
